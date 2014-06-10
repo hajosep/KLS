@@ -53,7 +53,7 @@ cutoff = 0.25 * len(oneubq_seq)
 # global alignment
 # align score = 1 pt for match, -0.5 for mismatch, -0.25 for gap, -0.1 for gap extension
 # With these numbers most ubiquitins will score ~ 76.0, non-ubiquitins ~ 6
-alignScore = lambda x: max( a[2] for a in pairwise2.align.globalms(oneubq_seq, x, 1.0, -0.4, -0.1, -0.1))
+alignScore = lambda x: max( a[2] for a in pairwise2.align.globalms(oneubq_seq, x, 1.0, -0.4, -1.0, -0.6))
 # Explanation: globalxx(seq1, seq2) does a pairwise alignment and returns a list of
 # tuples in which element 2 of each tuple is the alignment score. globalms is like
 # globalxx but takes parameters for how to score the alignment.
@@ -124,19 +124,39 @@ oneubq_name = "ONEUBQ_TEMPLATE"
 oneubq_chain = "U"
 matches = [ ''.join([">", oneubq_name, ":", oneubq_chain, "|PDBID|CHAIN|SEQUENCE"]), oneubq_seq ] + list(matches)
 
-devnull = open(os.devnull, 'w')
-muscle = subprocess.Popen(["muscle", "-clw"], stdin=subprocess.PIPE, \
-		stdout=subprocess.PIPE, stderr=devnull)
+#devnull = open(os.devnull, 'w')
+
+#muscle = subprocess.Popen(["muscle", "-clw"], stdin=subprocess.PIPE, \
+#		stdout=subprocess.PIPE, stderr=devnull)
+
 musclein = '\n'.join(matches)
-muscle.stdin.write(musclein)
-muscle.stdin.close()
-muscle.wait()
+
+muscleinfile = open("muscleinfile.txt", 'w')
+
+print(musclein, file=muscleinfile)
+
+print("WROTE muscleinfile.txt")
+
+muscleinfile.close()
+
+os.system("cat muscleinfile.txt | muscle -clw > muscleoutfile.txt")
+
+#muscle.stdin.write(musclein)
+#muscle.stdin.close()
+print("CALLING MUSCLE")
+#muscle.wait()
+print("FINISHED MUSCLE")
 
 pdbAlignments = {}
 conservations = ""
 
+muscleoutfile = open("muscleoutfile.txt", 'r')
+
+print("READING muscleoutfile.txt")
+
 muscleMSA = open("muscleMSA.txt", "wt")
-for l in muscle.stdout.readlines():
+#for l in muscle.stdout.readlines():
+for l in muscleoutfile.readlines():
 	muscleMSA.write(l)
 	if l.startswith("MUSCLE"):
 		continue
@@ -171,6 +191,8 @@ for l in muscle.stdout.readlines():
 	assert(False)
 muscleMSA.close()
 
+muscleoutfile.close()
+
 # Clustal W alignment symbols key
 # *  -- all residues or nucleotides in that column are identical
 #         :  -- conserved substitutions have been observed
@@ -200,7 +222,6 @@ def parseMissDens(pdblines):
 		else:
 			missDens[ch] = [resNum]
 	return(missDens)
-
 
 # handle oneubq numbering here
 oneubq_alignment = pdbAlignments[oneubq_name][oneubq_chain]
@@ -262,7 +283,7 @@ def genRenumMap( resNamesNums, alignment, missDens):
 			missDens_i += 1
 		else:
 			break
-	
+
 	align_i += missDens_i
 
 	#print("alignment:", alignment)
@@ -344,13 +365,13 @@ def writeModel(modelBuffer, chainAlignments, chainIDmap, missDens, pdbout):
 				chainResNamesNums[ch].append( resNameNum )
 		else:
 			chainResNamesNums[ch] = [ resNameNum ]
-	
+
 	renumMaps = {}
 	for c in chainAlignments:
 		#print("on chain:", c)
 		chainMissDens = missDens[c] if c in missDens else []
 		renumMaps[c] = genRenumMap(chainResNamesNums[c], chainAlignments[c], chainMissDens)
-	
+
 	ubqChIDs = list("UWXYZuwxyz")
 	for c in chainAlignments:
 		if c in chainIDmap:
@@ -363,7 +384,7 @@ def writeModel(modelBuffer, chainAlignments, chainIDmap, missDens, pdbout):
 		assert(c in chainIDmap)
 
 	#print("chainIDmap:", chainIDmap)
-	
+
 	# every chain we need to edit is now in chainIDmap and renumMaps
 	for l in modelBuffer:
 		ch = l[21]
@@ -374,7 +395,7 @@ def writeModel(modelBuffer, chainAlignments, chainIDmap, missDens, pdbout):
 		resNum = int(l[22:26])
 		renum = rjust(str(renumMaps[ch][resNum]), 4)
 		pdbout.write( ''.join( (l[:21], newCh, renum, l[26:]) ) )
-	
+
 	return(chainIDmap)
 
 for pdb in pdbAlignments:
