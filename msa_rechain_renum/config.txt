@@ -1,0 +1,8 @@
+# What is the one true sequence of ubiquitin?  It is the sequence of 1UBQ.pdb.
+# All other sequences are heresy and will be given lower alignment scores.
+sequenceArchetype = 'MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG'
+
+matchScore        =  1
+mismatchScore     = -0.5
+gapScore          = -0.25
+gapExtensionScore = -0.1

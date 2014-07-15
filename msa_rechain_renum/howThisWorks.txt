@@ -1,0 +1,56 @@
+# 
+
+# STEP 1, find sequences, score alignments
+# Required inputs:
+#
+# pdbs.txt is a list of pdb and/or fasta file paths that might be gzipped
+#
+# The last step requires pdbs so you probably shouldn't use fastas
+# config argument describes how you want to score pairwise alignments.
+#
+# An alignment score is output for every sequence, no selection takes place.
+#
+# The combined output ends up in a json file which is just text that you can look at.
+
+./findChainsMatchingSeq.py -c config.txt -l pdbs.txt -o alignedScoredSeqs.json
+
+# Now you have a chance to inspect the json file, see the alignment scores, make changes.
+
+# This script generates a fasta from the json by selecting sequences with
+# alignments greaer than or equal to an alignment score cutoff
+# The '-t' argument is threshold.
+
+# STEP 2a, select from scored sequences
+./pluckThreshold.py -t 30 alignedScoredSeqs.json > seqs.fa
+
+# STEP 3, muscle
+# Use muscle as usual
+muscle -in seqs.fa -out seqs.afa
+
+
+# Step 4, renumber chains in pdbs
+# This step is a bit raw, it requires seqs.afa sequence names to be of the
+# format: '>PATH-TO-PDB-TO-RENUMBER|CHAIN'
+# The reference_ubq arg is specified as 'PATH-TO-PDB,CHAIN' (that's a comma).
+# The reference must be in the input file.  It controls which residue is
+# numbered as #1.
+# The outdir arg is where the renumbered pdbs end up.
+
+./renumFromMuscleFasta.py --reference_ubq 1UBQ.pdb.gz,A --input seqs.afa --outdir myoutdir
+
+# You may need to quote the argument to reference_ubq to prevent argument
+# expansion.  Example:
+./renumFromMuscleFasta.py --reference_ubq "../../4F8C.pdb,B" --input seqs.afa --outdir myoutdir
+
+
+# STEP 2b, create database of chains that match the reference sequence
+
+# The above steps don't rename the chains.  Here's a better solution.
+# pluckIntoSqlite.py will add a table of pdb codes and chains that are ubiquitin.
+# example:
+
+./pluckIntoSqlite.py --threshold 10 --dbase_name my_ubiquitin_dbase.db3 --table_name my_ubiquitin_table alignedScoredSeqs.json
+
+# threshold is optional.  Without threshold everything gets entered into the database.
+# You can muck around with the json file before this.  It just needs to have
+# the "protein_name" and "chain" entries to work.
